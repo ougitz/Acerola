@@ -3,6 +3,7 @@
 export type Genre = {
     genre: string
     genre_id: number
+    image_url: string | null
 }
 
 export type Chapter = {
@@ -50,7 +51,6 @@ export type AppRelease = {
 export type ManhwaGenre = {
     manhwa_id: number
     genre_id: number
-    genre: string
 }
 
 export type ChapterImage = {

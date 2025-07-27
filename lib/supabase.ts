@@ -1,4 +1,4 @@
-import { AppRelease, Chapter, ChapterImage, Collection, DonateMethod, Manhwa, ManhwaCard, Post, Scan } from "@/helpers/types";
+import { AppRelease, Chapter, ChapterImage, Collection, DonateMethod, Genre, Manhwa, ManhwaCard, Post, Scan } from "@/helpers/types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient } from '@supabase/supabase-js';
 import * as RNLocalize from 'react-native-localize';
@@ -55,6 +55,21 @@ export async function spFetchLastDatabaseUpdate(): Promise<Date | null> {
     }
     
     return new Date(data.created_at)
+}
+
+
+export async function spFetchGenres(): Promise<Genre[]> {
+    console.log("fetchin genres")
+    const { data, error } = await supabase
+        .from("genres")
+        .select('*')
+
+    if (error) {
+        console.log("error spFetchGenres", error)
+        return []
+    }
+
+    return data as Genre[]
 }
 
 

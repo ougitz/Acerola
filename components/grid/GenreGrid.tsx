@@ -1,21 +1,21 @@
-import { Colors } from '@/constants/Colors'
 import { Genre } from '@/helpers/types'
-import { AppStyle } from '@/styles/AppStyle'
+import { Image } from 'expo-image'
 import { router } from 'expo-router'
-import React from 'react'
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
-
-
-type GenreType = Genre | 'Header'
+import React, { useCallback } from 'react'
+import { FlatList, Pressable, StyleSheet, View } from 'react-native'
+import ViewAllButton from '../buttons/ViewAllButton'
+import Title from '../Title'
+import Row from '../util/Row'
 
 
 interface GenreGridProps {
     genres: Genre[]
 }
 
-const GenreGrid = ({genres}: GenreGridProps) => {
 
-    const onPress = (genre: Genre) => {
+const Item = ({item}: {item: Genre}) => {
+    
+    const onPress = useCallback((genre: Genre) => {
         router.navigate({
             pathname: '/(pages)/ManhwaByGenre', 
             params: {
@@ -23,37 +23,42 @@ const GenreGrid = ({genres}: GenreGridProps) => {
                 genre_id: genre.genre_id
             }
         })
-    }
+    }, [item.genre_id])
+    
+    return (
+        <Pressable onPress={() => onPress(item)} style={styles.button} >
+            <Image 
+                style={styles.image} 
+                source={item.image_url} 
+                contentFit='contain'
+            />
+        </Pressable>
+    )
+}
+
+
+const GenreGrid = ({genres}: GenreGridProps) => {
+
 
     const viewAllGenres = () => {
         router.navigate("/(pages)/GenresPage")
-    }
-
-    const renderItem = ({item}: {item: GenreType}) => {
-        if (item === "Header") {
-            return (
-                <Pressable onPress={viewAllGenres} style={styles.button} >
-                    <Text style={[AppStyle.textRegular, {color: Colors.backgroundColor}]}>All Genres</Text>
-                </Pressable>
-            )
-        }
-        return (
-            <Pressable onPress={() => onPress(item)} style={styles.button} >
-                <Text style={[AppStyle.textRegular, {color: Colors.backgroundColor}]}>{item.genre}</Text>
-            </Pressable>
-        )
-    }
+    }    
 
     if (genres.length === 0) { return <></> }
 
     return (
         <View style={styles.container} >
+            <Row style={{width: '100%', justifyContent: "space-between"}} >
+                <Title title='Genres'/>
+                <ViewAllButton onPress={viewAllGenres} />
+            </Row>
             <FlatList
-                data={[...['Header'], ...genres] as GenreType[]}
-                keyExtractor={(item, index) => index.toString()}
-                showsHorizontalScrollIndicator={false}
+                data={genres.slice(0, 16)}
                 horizontal={true}
-                renderItem={renderItem}
+                initialNumToRender={10}
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={(item) => item.genre}
+                renderItem={({item}) => <Item item={item} />}
             />
         </View>
     )
@@ -67,13 +72,12 @@ const styles = StyleSheet.create({
         gap: 10,
         alignItems: "flex-start"
     },
-    button: {
-        paddingHorizontal: 8,
-        paddingVertical: 10,
-        alignItems: "center",
-        justifyContent: "center",
-        borderRadius: 4,
-        backgroundColor: Colors.yellow,
+    button: {        
         marginRight: 10
+    },
+    image: {
+        width: 200,
+        height: 140,
+        borderRadius: 4
     }
 })

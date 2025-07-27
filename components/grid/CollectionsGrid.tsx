@@ -1,6 +1,5 @@
 import { Colors } from '@/constants/Colors'
 import { Collection } from '@/helpers/types'
-import { useCollectionState } from '@/store/collectionsState'
 import { AppStyle } from '@/styles/AppStyle'
 import { router } from 'expo-router'
 import React from 'react'
@@ -10,9 +9,7 @@ import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
 type CollectionType = Collection | 'Header'
 
 
-const CollectionGrid = () => {
-
-    const { collections } = useCollectionState()
+const CollectionGrid = ({collections}: {collections: Collection[]}) => {
 
     const onPress = (collection: Collection) => {
         router.navigate({

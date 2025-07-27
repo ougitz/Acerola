@@ -1,19 +1,25 @@
 import TopBar from '@/components/TopBar'
 import ReturnButton from '@/components/buttons/ReturnButton'
-import { Colors } from '@/constants/Colors'
 import { Genre } from '@/helpers/types'
+import { hp, wp } from '@/helpers/util'
 import { dbReadGenres } from '@/lib/database'
 import { AppStyle } from '@/styles/AppStyle'
+import { FlashList } from '@shopify/flash-list'
+import { Image } from 'expo-image'
 import { router } from 'expo-router'
 import { useSQLiteContext } from 'expo-sqlite'
 import React, { useEffect, useState } from 'react'
-import { FlatList, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native'
+import { Pressable, SafeAreaView, View } from 'react-native'
 
+
+const MAX_WIDTH = wp(90)
 
 const GenresPage = () => {
 
     const db = useSQLiteContext()
     const [genres, setGenres] = useState<Genre[]>([])
+ 
+    const width = 400 > MAX_WIDTH ? MAX_WIDTH : 400
 
     useEffect(
         () => {
@@ -45,8 +51,12 @@ const GenresPage = () => {
         return (
             <Pressable
                 onPress={() => onPress(item)}
-                style={[styles.item, {marginRight: index % 2 == 0 ? '4%' : 0}]} >
-                <Text style={[AppStyle.textRegular, {color: Colors.backgroundColor, textAlign: "center", alignSelf: "center"}]} >{item.genre}</Text>
+                style={{marginBottom: 4}} >
+                <Image 
+                    style={{width, height: 280, borderRadius: 4}} 
+                    source={item.image_url} 
+                    contentFit='contain'
+                    />
             </Pressable>
         )
     }
@@ -56,29 +66,19 @@ const GenresPage = () => {
             <TopBar title="Genres">
                 <ReturnButton/>
             </TopBar>
-            <FlatList
-                data={genres}
-                initialNumToRender={30}
-                keyExtractor={(item) => item.genre_id.toString()}
-                showsVerticalScrollIndicator={false}
-                numColumns={2}
-                renderItem={renderItem}
-                ListFooterComponent={<View style={{height: 62}} />}
-            />
+            <View style={{flex: 1}} >
+                <FlashList
+                    data={genres}
+                    keyExtractor={(item) => item.genre_id.toString()}
+                    showsVerticalScrollIndicator={false}
+                    estimatedItemSize={280}
+                    drawDistance={hp(100)}
+                    renderItem={renderItem}
+                    ListFooterComponent={<View style={{height: 62}} />}
+                />
+            </View>
         </SafeAreaView>
     )
 }
 
 export default GenresPage
-
-const styles = StyleSheet.create({
-    item: {
-        width: '48%',
-        height: 52,
-        alignItems: "center", 
-        justifyContent: "center",         
-        backgroundColor: Colors.yellow,
-        borderRadius: 4,
-        marginBottom: 10
-    }
-})

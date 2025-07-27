@@ -48,6 +48,7 @@ const _layout = () => {
               <Stack.Screen name='(pages)/ManhwaSearch' options={{headerShown: false}} />
               <Stack.Screen name='(pages)/ScansPage' options={{headerShown: false}} />
               <Stack.Screen name='(pages)/ChapterPage' options={{headerShown: false}} />
+              <Stack.Screen name='(pages)/CustomGenrePage' options={{headerShown: false}} />
               <Stack.Screen name='(pages)/GenresPage' options={{headerShown: false}} />
               <Stack.Screen name='(pages)/CollectionsPage' options={{headerShown: false}} />
               <Stack.Screen name='(pages)/CollectionPage' options={{headerShown: false}} />

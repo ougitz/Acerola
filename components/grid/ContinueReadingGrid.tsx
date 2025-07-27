@@ -19,7 +19,7 @@ const Item = ({item} : {item: Manhwa}) => {
 
     return (
         <Pressable onPress={onPress} style={{marginRight: 4}} >
-            <Image style={{width: 100, height: 180, borderRadius: 4}} contentFit='cover' source={item.cover_image_url} />
+            <Image style={{width: 80, height: 120, borderRadius: 4}} contentFit='cover' source={item.cover_image_url} />
         </Pressable>
     )   
 }

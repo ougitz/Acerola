@@ -3,7 +3,7 @@ import { secondsSince } from '@/helpers/util';
 import * as SQLite from 'expo-sqlite';
 import DeviceInfo from 'react-native-device-info';
 import uuid from 'react-native-uuid';
-import { spGetManhwas, spNewRun } from './supabase';
+import { spFetchGenres, spGetManhwas, spNewRun } from './supabase';
 
 
 export async function dbMigrate(db: SQLite.SQLiteDatabase) {
@@ -32,8 +32,9 @@ export async function dbMigrate(db: SQLite.SQLiteDatabase) {
 
       CREATE TABLE IF NOT EXISTS genres (
           genre_id INTEGER PRIMARY KEY,
-          genre TEXT NOT NULL
-      );
+          genre TEXT NOT NULL,
+          image_url TEXT DEFAULT NULL
+      );      
 
       CREATE TABLE IF NOT EXISTS authors (
           author_id INTEGER PRIMARY KEY,
@@ -65,14 +66,15 @@ export async function dbMigrate(db: SQLite.SQLiteDatabase) {
           author_id INTEGER NOT NULL,
           manhwa_id INTEGER NOT NULL,
           role TEXT NOT NULL,
-          CONSTRAINT manhwa_authors_pkey PRIMARY KEY (manhwa_id, author_id, role)          
+          CONSTRAINT manhwa_authors_pkey PRIMARY KEY (manhwa_id, author_id, role),
+          CONSTRAINT manhwa_authors_manhwa_id_fkey FOREIGN KEY (manhwa_id) REFERENCES manhwas (manhwa_id) ON UPDATE CASCADE ON DELETE CASCADE
       );
 
       CREATE TABLE IF NOT EXISTS manhwa_genres (
           genre_id INTEGER NOT NULL,
           manhwa_id INTEGER NOT NULL,
           CONSTRAINT manhwa_genres_pkey PRIMARY KEY (manhwa_id, genre_id),
-          CONSTRAINT manhwa_genres_genre_id_fkey FOREIGN KEY (genre_id) REFERENCES genres (genre_id) ON UPDATE CASCADE ON DELETE CASCADE
+          CONSTRAINT manhwa_genres_manhwa_id_fkey FOREIGN KEY (manhwa_id) REFERENCES manhwas (manhwa_id) ON UPDATE CASCADE ON DELETE CASCADE          
       );
 
       CREATE TABLE IF NOT EXISTS chapters (
@@ -181,9 +183,9 @@ export async function dbSetLastDatabaseUpdateTimestamp(db: SQLite.SQLiteDatabase
 }
 
 export async function dbClearDatabase(db: SQLite.SQLiteDatabase) {
-    await db.runAsync('DELETE FROM manhwas;').catch(error => console.log("error dbClearDatabase manhwas", error))
-    await db.runAsync('DELETE FROM genres;').catch(error => console.log("error dbClearDatabase genres", error))
-    await db.runAsync('DELETE FROM authors;').catch(error => console.log("error dbClearDatabase authors", error))
+    await db
+      .runAsync('DELETE FROM manhwas;')
+      .catch(error => console.log("error dbClearDatabase manhwas", error))
     console.log("[DATABASE CLEARED]")
 }
 
@@ -228,6 +230,10 @@ export async function dbGetUserUUID(db: SQLite.SQLiteDatabase): Promise<string> 
 export async function dbFirstRun(db: SQLite.SQLiteDatabase) {
   const r = await dbReadInfo(db, 'first_run')  
   if (r === '1') {
+    console.log("first run")
+    const g = await spFetchGenres()
+    await dbUpsertGenres(db, g)
+
     const model = DeviceInfo.getModel()
     const systemName = DeviceInfo.getSystemName()
     const systemVersion = DeviceInfo.getSystemVersion()
@@ -235,8 +241,9 @@ export async function dbFirstRun(db: SQLite.SQLiteDatabase) {
     await dbSetInfo(db, 'first_run', '0')
     await dbSetInfo(db, 'device', device)
     const user_id = await dbSetUserUUID(db)
-    await spNewRun(user_id, device)
+    spNewRun(user_id, device)
     console.log("New User", device, user_id)
+
   }
 }
 
@@ -371,7 +378,6 @@ export async function dbUpsertManhwa(db: SQLite.SQLiteDatabase, manhwa: Manhwa) 
   ).catch(error => console.log("error dbUpsertManhwa", error));
 
   // Genres
-  await dbUpsertGenres(db, manhwa.genres)
   await dbUpsertManhwaGenres(db, manhwa.genres.map(g => {return {genre: g.genre, genre_id: g.genre_id, manhwa_id: manhwa.manhwa_id}}))
 
   // Authors
@@ -489,16 +495,18 @@ async function dbUpsertChapter(db: SQLite.SQLiteDatabase, chapters: Chapter[]) {
 
 
 async function dbUpsertGenres(db: SQLite.SQLiteDatabase, genres: Genre[]) {
-  const placeholders = genres.map(() => '(?,?)').join(',');  
+  const placeholders = genres.map(() => '(?,?,?)').join(',');  
   const params = genres.flatMap(i => [
     i.genre_id, 
-    i.genre    
+    i.genre,
+    i.image_url ? i.image_url : null 
   ]);
   await db.runAsync(
     `
       INSERT OR REPLACE INTO genres (
         genre_id, 
-        genre
+        genre,
+        image_url
       ) 
       VALUES ${placeholders};
     `, 
@@ -591,23 +599,35 @@ export async function dbUpdateDatabase(db: SQLite.SQLiteDatabase): Promise<numbe
     const chapters: Chapter[] = []
     const authors: Author[] = []
     const manhwaAuthors: ManhwaAuthor[] = []
-    const genres: Genre[] = []
     const manhwaGenres: ManhwaGenre[] = []
     const titles: (number | string)[] = []
 
     manhwas.forEach(i => {
+      // Last 3 chapters
       i.chapters.forEach(c => chapters.push(c)); 
-      i.genres.forEach(g => {genres.push(g); manhwaGenres.push({...g, manhwa_id: i.manhwa_id})});
-      i.authors.forEach(a => {authors.push(a); manhwaAuthors.push({...a, manhwa_id: i.manhwa_id})});
-      titles.push(i.manhwa_id); titles.push(i.title)
+
+      // Genres
+      i.genres.forEach(g => {
+        manhwaGenres.push({genre_id: g.genre_id, manhwa_id: i.manhwa_id})
+      });
+
+      // Authors
+      i.authors.forEach(a => {
+        authors.push(a);
+        manhwaAuthors.push({...a, manhwa_id: i.manhwa_id})
+      });
+
+      // Titles
+      titles.push(i.manhwa_id); 
+      titles.push(i.title)
       i.alt_titles.forEach(alt_title => {
         titles.push(i.manhwa_id); titles.push(alt_title)
       })
+      
     })
 
     await dbUpsertAltTitles(db, titles)
-          
-    await dbUpsertGenres(db, genres)
+              
     await dbUpsertManhwaGenres(db, manhwaGenres)
         
     await dbUpsertAuthors(db, authors)
@@ -695,10 +715,18 @@ export async function dbGetAppVersion(db: SQLite.SQLiteDatabase): Promise<string
 
 export async function dbReadGenres(db: SQLite.SQLiteDatabase): Promise<Genre[]> {
   const rows = await db.getAllAsync(
-    'SELECT * FROM genres ORDER BY genre;'    
+    `
+      SELECT 
+        *
+      FROM 
+        genres
+      ORDER BY 
+        genre;
+    ` 
   ).catch(error => console.log("error dbReadGenres", error));
   return rows ? rows as Genre[] : []
 }
+
 
 export async function dbReadManhwaById(
   db: SQLite.SQLiteDatabase,

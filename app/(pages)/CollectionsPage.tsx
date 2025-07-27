@@ -2,16 +2,29 @@ import TopBar from '@/components/TopBar'
 import ReturnButton from '@/components/buttons/ReturnButton'
 import { Colors } from '@/constants/Colors'
 import { Collection } from '@/helpers/types'
-import { useCollectionState } from '@/store/collectionsState'
+import { dbReadCollections } from '@/lib/database'
 import { AppStyle } from '@/styles/AppStyle'
 import { router } from 'expo-router'
-import React from 'react'
+import { useSQLiteContext } from 'expo-sqlite'
+import React, { useEffect, useState } from 'react'
 import { FlatList, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native'
 
 
 const CollectionsPage = () => {
     
-    const { collections } = useCollectionState()
+    const db = useSQLiteContext()
+    const [collections, setCollections] = useState<Collection[]>([])
+
+    useEffect(
+        () => {
+            const init = async () => {
+                const c = await dbReadCollections(db)
+                setCollections(c)
+            }
+            init()
+        },
+        []
+    )    
 
     const onCollectionPress = async (collection: Collection) => {
         router.navigate({

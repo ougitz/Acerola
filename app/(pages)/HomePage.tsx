@@ -11,11 +11,10 @@ import AppLogo from '@/components/util/Logo'
 import Row from '@/components/util/Row'
 import { AppConstants } from '@/constants/AppConstants'
 import { Colors } from '@/constants/Colors'
-import { Genre, Manhwa } from '@/helpers/types'
+import { Collection, Genre, Manhwa } from '@/helpers/types'
 import { hp, wp } from '@/helpers/util'
 import { dbGetReadingHistory, dbReadCollections, dbReadGenres, dbReadManhwasOrderedByUpdateAt, dbReadManhwasOrderedByViews, dbUpsertCollections } from '@/lib/database'
 import { spFetchCollections, spFetchRandomManhwaCards } from '@/lib/supabase'
-import { useCollectionState } from '@/store/collectionsState'
 import { useManhwaCardsState } from '@/store/randomManhwaState'
 import { AppStyle } from '@/styles/AppStyle'
 import { router, useFocusEffect } from 'expo-router'
@@ -36,7 +35,7 @@ const HomePage = () => {
     
     const db = useSQLiteContext()
     
-    const { collections, setCollections } = useCollectionState()
+    const [collections, setCollections] = useState<Collection[]>([])
     const { cards, setCards } = useManhwaCardsState()
 
     const [genres, setGenres] = useState<Genre[]>([])
@@ -48,26 +47,27 @@ const HomePage = () => {
         const r = await spFetchRandomManhwaCards(32)
         setCards(r)
     }
-
+    
     useEffect(
         () => {
             const init = async () => {
+                
                 const g = await dbReadGenres(db)
                 const l = await dbReadManhwasOrderedByUpdateAt(db, 0, 30)
-                const m = await dbReadManhwasOrderedByViews(db, 0, 30)
-
+                const m = await dbReadManhwasOrderedByViews(db, 0, 30)                
+                
                 setGenres(g)
                 setLatestUpdates(l)
                 setMostView(m)
-
+                
+                let c = await dbReadCollections(db)
                 if (collections.length == 0) {
-                    let c = await dbReadCollections(db)
                     if (c.length === 0) {
                         c = await spFetchCollections()
                         await dbUpsertCollections(db, c)
                     }
-                    setCollections(c)
                 }
+                setCollections(c)
 
                 if (cards.length == 0) {
                     const r = await spFetchRandomManhwaCards(32)
@@ -147,9 +147,9 @@ const HomePage = () => {
             {/* Main content */}
             <ScrollView style={{flex: 1}} showsVerticalScrollIndicator={false} >
                 <View style={{gap: 10}} >
-                    <GenreGrid genres={genres} />
-                    <CollectionGrid/>
                     <ContinueReadingGrid manhwas={readingHistoryManhwas} />
+                    <CollectionGrid collections={collections} />
+                    <GenreGrid genres={genres} />
                     <ManhwaHorizontalGrid
                         title='Latest Updates'
                         onViewAll={() => router.navigate("/(pages)/LatestUpdatesPage")}
